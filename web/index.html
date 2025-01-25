@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chatteroo - Hop into a world of fun conversations!</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div id="auth-modal" class="modal">
+        <div class="modal-content">
+            <div class="auth-tabs">
+                <button class="auth-tab active" data-tab="login">Login</button>
+                <button class="auth-tab" data-tab="signup">Signup</button>
+            </div>
+            
+            <form id="login-form" class="auth-form">
+                <input type="email" name="email" placeholder="Email" required>
+                <input type="password" name="password" placeholder="Password" required>
+                <button type="submit">Login</button>
+            </form>
+            
+            <form id="signup-form" class="auth-form" style="display: none;">
+                <input type="text" name="name" placeholder="Name" required>
+                <input type="email" name="email" placeholder="Email" required>
+                <input type="password" name="password" placeholder="Password" required>
+                <button type="submit">Sign Up</button>
+            </form>
+        </div>
+    </div>
+    <div class="app-container">
+        <aside class="sidebar">
+            <button class="toggle-sidebar" aria-label="Toggle Sidebar">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M15 18l-6-6 6-6" />
+                </svg>
+            </button>
+            <div class="sidebar-header">
+                <h2>Chat History</h2>
+                <button id="new-chat" class="new-chat-btn">New Chat</button>
+            </div>
+            <div id="chat-list" class="chat-list">
+                <!-- Chat items will be inserted here -->
+            </div>
+        </aside>
+        <main class="main-content">
+            <h1>Chatteroo</h1>
+            <div class="output">
+                <!-- Messages will be inserted here -->
+            </div>
+            <div class="input-area">
+                <form id="prompt-box" class="prompt-box">
+                    <div class="prompt-box">
+                        <label>
+                            <input name="prompt" placeholder="Provide a problem statement" type="text" value="">
+                        </label>
+                        <button type="submit">Go</button>
+                    </div>
+                </form>
+                <!-- <form id="prompt-box" class="prompt-box">
+                    <div class="input-wrapper">
+                        <input name="prompt" placeholder="Provide a problem statement" type="text">
+                        <button type="submit">Go</button>
+                    </div>
+                </form> -->
+                
+            </div>
+            <div class="theme-switch-wrapper">
+                <button id="theme-toggle" class="theme-toggle-btn" aria-label="Toggle Theme">
+                    <svg class="moon-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg class="sun-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+            </div>
+        </main>
+    </div>
+    <script src="https://unpkg.com/markdown-it@8.4.2/dist/markdown-it.min.js"></script>
+    <script src="https://unpkg.com/base64-js@1.3.0/base64js.min.js"></script>
+    <script type="module" src="/main.js"></script>
+</body>
+</html>

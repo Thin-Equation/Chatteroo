@@ -1,0 +1,9 @@
+# Dev environment
+pip
+autopep8
+
+# App
+python-dotenv
+langchain_core
+langchain-google-genai
+flask
