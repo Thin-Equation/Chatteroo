@@ -223,11 +223,30 @@ def signup_api():
             print(f"Signup error: {str(e)}")  # For debugging
             return jsonify({'error': 'Internal server error'}), 500
 
-@app.route('/api/auth/logout')
+# @app.route('/api/auth/logout')
+# @login_required
+# def logout_api():
+#     logout_user()
+#     return jsonify({'authenticated': False})
+
+@app.route('/api/auth/logout', methods=['POST'])
 @login_required
 def logout_api():
+    user_id = current_user.id
+    # Store current session's chat history
+    current_session = ChatMessage.query.filter_by(
+        session_id=request.form.get('currentSessionId')
+    ).all()
+    
+    # Associate chat history with user
+    for message in current_session:
+        message.user_id = user_id
+    db.session.commit()
+    
     logout_user()
     return jsonify({'authenticated': False})
+
+
 
 if __name__ == "__main__":
     app.run(port=int(os.environ.get('PORT', 80)))

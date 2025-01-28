@@ -47,6 +47,86 @@ window.onload = async () => {
     }
 };
 
+// Add logout button handler
+// const logoutBtn = document.getElementById('logout-btn');
+// logoutBtn.addEventListener('click', async () => {
+//     try {
+//         const response = await fetch('/api/auth/logout');
+//         const data = await response.json();
+        
+//         if (!data.authenticated) {
+//             isAuthenticated = false;
+//             currentUser = null;
+//             showAuthModal();
+            
+//             // Clear current session
+//             output.innerHTML = '';
+//             promptInput.value = '';
+            
+//             // Clear sessions
+//             sessions = [];
+//             sessionInputs = {};
+//             localStorage.removeItem('sessions');
+//             localStorage.removeItem('sessionInputs');
+//             localStorage.removeItem('currentSessionId');
+            
+//             renderSessions();
+//         }
+//     } catch (error) {
+//         console.error('Logout error:', error);
+//     }
+// });
+
+const logoutBtn = document.getElementById('logout-btn');
+logoutBtn.addEventListener('click', async () => {
+    try {
+        // Send current session ID to backend
+        const response = await fetch('/api/auth/logout', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                currentSessionId: currentSessionId
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (!data.authenticated) {
+            // Clear authentication state
+            isAuthenticated = false;
+            currentUser = null;
+            
+            // Clear login/signup form fields
+            const loginForm = document.getElementById('login-form');
+            const signupForm = document.getElementById('signup-form');
+            loginForm.reset();
+            signupForm.reset();
+            
+            // Show auth modal with empty fields
+            showAuthModal();
+            
+            // Clear current chat display
+            output.innerHTML = '';
+            promptInput.value = '';
+            
+            // Clear session data but keep history in database
+            sessions = [];
+            sessionInputs = {};
+            localStorage.removeItem('sessions');
+            localStorage.removeItem('sessionInputs');
+            localStorage.removeItem('currentSessionId');
+            
+            renderSessions();
+        }
+    } catch (error) {
+        console.error('Logout error:', error);
+    }
+});
+
+
+
 function initializeAuthListeners() {
     loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -143,16 +223,52 @@ function showAuthModal() {
     
 }
 
-function handleAuthSuccess(response) {
+// function handleAuthSuccess(response) {
+//     isAuthenticated = response.authenticated;
+//     currentUser = response.user;
+//     document.getElementById('auth-modal').style.display = 'none';
+    
+//     if (sessions.length === 0) {
+//         addNewSession();
+//     } else {
+//         renderSessions();
+//         loadSession(currentSessionId);
+//     }
+// }
+
+async function handleAuthSuccess(response) {
     isAuthenticated = response.authenticated;
     currentUser = response.user;
+    
+    // Hide auth modal
     document.getElementById('auth-modal').style.display = 'none';
     
-    if (sessions.length === 0) {
-        addNewSession();
-    } else {
+    // Load user's chat history
+    try {
+        const historyResponse = await fetch('/api/history/' + currentUser.id);
+        const history = await historyResponse.json();
+        
+        if (history.length > 0) {
+            // Create new session with historical messages
+            const sessionId = addNewSession();
+            output.innerHTML = '';
+            
+            // Display historical messages
+            history.forEach(message => {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `message ${message.role}`;
+                messageDiv.innerHTML = md.render(message.content);
+                output.appendChild(messageDiv);
+            });
+        } else {
+            addNewSession();
+        }
+        
         renderSessions();
-        loadSession(currentSessionId);
+        
+    } catch (error) {
+        console.error('Error loading chat history:', error);
+        addNewSession();
     }
 }
 
