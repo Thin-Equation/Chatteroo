@@ -35,6 +35,7 @@ db = SQLAlchemy(app)
 # Database Model
 class ChatMessage(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     session_id = db.Column(db.String(50), nullable=False)
     role = db.Column(db.String(10), nullable=False)  # 'human' or 'ai'
     content = db.Column(db.Text, nullable=False)
@@ -49,13 +50,14 @@ class ChatMessage(db.Model):
         }
 
 class User(UserMixin, db.Model):
+    chat_messages = db.relationship('ChatMessage', backref='user', lazy=True)
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(100), unique=True)
     password = db.Column(db.String(255))
     name = db.Column(db.String(100))
     
     def set_password(self, password):
-        self.password = generate_password_hash(password, method='sha256')
+        self.password = generate_password_hash(password, method='pbkdf2:sha256')
         
     def check_password(self, password):
         return check_password_hash(self.password, password)
@@ -79,6 +81,7 @@ def generate_api():
             
             # Store human message in database
             human_message = ChatMessage(
+                user_id=current_user.id,
                 session_id=session_id,
                 role='human',
                 content=content[0]['text']  # Assuming first content is text
@@ -88,6 +91,7 @@ def generate_api():
 
             # Get chat history for context
             history = ChatMessage.query.filter_by(
+                user_id=current_user.id,
                 session_id=session_id
             ).order_by(ChatMessage.timestamp).all()
 
@@ -120,6 +124,7 @@ def generate_api():
 
             generated_content = generate_response(messages, session_id)
             ai_message = ChatMessage(
+                user_id=current_user.id,
                 session_id=session_id,
                 role='ai',
                 content=generated_content
@@ -134,9 +139,17 @@ def generate_api():
 @login_required
 def get_chat_history(session_id):
     history = ChatMessage.query.filter_by(
+        user_id=current_user.id,
         session_id=session_id
     ).order_by(ChatMessage.timestamp).all()
     return jsonify([message.to_dict() for message in history])
+
+@app.route('/api/history/', methods=['GET'])
+@login_required
+def get_all_chat_history():
+    history = ChatMessage.query.filter_by(user_id=current_user.id).order_by(ChatMessage.timestamp).all()
+    return jsonify([message.to_dict() for message in history])
+
 
 @app.route('/<path:path>')
 def serve_static(path):
@@ -171,7 +184,7 @@ def login_api():
     data = request.get_json()
     user = User.query.filter_by(email=data.get('email')).first()
     
-    if user: #and user.check_password(data.get('password')):
+    if user and user.check_password(data.get('password')):
         login_user(user)
         return jsonify({
             'authenticated': True,
@@ -181,6 +194,7 @@ def login_api():
             }
         })
     return jsonify({'error': 'Invalid credentials'}), 401
+
 
 @app.route('/api/auth/signup', methods=['POST'])
 def signup_api():
@@ -196,17 +210,15 @@ def signup_api():
                 
             user = User(
                 email=data.get('email'),
-                password=data.get('password'),
                 name=data.get('name')
             )
-            #user.set_password(data.get('password'))
+            user.set_password(data.get('password'))
             
             try:
                 db.session.add(user)
                 db.session.commit()
             except SQLAlchemyError as db_error:
                 db.session.rollback()
-                print(f"Database error: {str(db_error)}")
                 return jsonify({'error': 'Database error occurred'}), 500
                 
             login_user(user)
@@ -220,33 +232,27 @@ def signup_api():
             })
         except Exception as e:
             db.session.rollback()
-            print(f"Signup error: {str(e)}")  # For debugging
             return jsonify({'error': 'Internal server error'}), 500
 
-# @app.route('/api/auth/logout')
-# @login_required
-# def logout_api():
-#     logout_user()
-#     return jsonify({'authenticated': False})
 
 @app.route('/api/auth/logout', methods=['POST'])
 @login_required
 def logout_api():
-    user_id = current_user.id
-    # Store current session's chat history
-    current_session = ChatMessage.query.filter_by(
-        session_id=request.form.get('currentSessionId')
-    ).all()
+    data = request.get_json()
+    current_session = data.get('currentSessionId')
     
-    # Associate chat history with user
-    for message in current_session:
-        message.user_id = user_id
-    db.session.commit()
+    if current_session:
+        messages = ChatMessage.query.filter_by(
+            session_id=current_session,
+            user_id=current_user.id
+        ).all()
+        
+        for message in messages:
+            message.user_id = current_user.id
+        db.session.commit()
     
     logout_user()
     return jsonify({'authenticated': False})
-
-
 
 if __name__ == "__main__":
     app.run(port=int(os.environ.get('PORT', 80)))

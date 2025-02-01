@@ -47,36 +47,6 @@ window.onload = async () => {
     }
 };
 
-// Add logout button handler
-// const logoutBtn = document.getElementById('logout-btn');
-// logoutBtn.addEventListener('click', async () => {
-//     try {
-//         const response = await fetch('/api/auth/logout');
-//         const data = await response.json();
-        
-//         if (!data.authenticated) {
-//             isAuthenticated = false;
-//             currentUser = null;
-//             showAuthModal();
-            
-//             // Clear current session
-//             output.innerHTML = '';
-//             promptInput.value = '';
-            
-//             // Clear sessions
-//             sessions = [];
-//             sessionInputs = {};
-//             localStorage.removeItem('sessions');
-//             localStorage.removeItem('sessionInputs');
-//             localStorage.removeItem('currentSessionId');
-            
-//             renderSessions();
-//         }
-//     } catch (error) {
-//         console.error('Logout error:', error);
-//     }
-// });
-
 const logoutBtn = document.getElementById('logout-btn');
 logoutBtn.addEventListener('click', async () => {
     try {
@@ -223,37 +193,34 @@ function showAuthModal() {
     
 }
 
-// function handleAuthSuccess(response) {
-//     isAuthenticated = response.authenticated;
-//     currentUser = response.user;
-//     document.getElementById('auth-modal').style.display = 'none';
-    
-//     if (sessions.length === 0) {
-//         addNewSession();
-//     } else {
-//         renderSessions();
-//         loadSession(currentSessionId);
-//     }
-// }
-
 async function handleAuthSuccess(response) {
     isAuthenticated = response.authenticated;
     currentUser = response.user;
     
-    // Hide auth modal
     document.getElementById('auth-modal').style.display = 'none';
     
-    // Load user's chat history
     try {
-        const historyResponse = await fetch('/api/history/' + currentUser.id);
+        const historyResponse = await fetch('/api/history/');
         const history = await historyResponse.json();
         
         if (history.length > 0) {
             // Create new session with historical messages
-            const sessionId = addNewSession();
-            output.innerHTML = '';
+            const sessionId = Date.now().toString();
+            const session = {
+                id: sessionId,
+                title: 'Previous Chat',
+                preview: history[0].content.substring(0, 50) + '...'
+            };
+            
+            sessions = [session];
+            currentSessionId = sessionId;
+            
+            // Save to localStorage
+            localStorage.setItem('sessions', JSON.stringify(sessions));
+            localStorage.setItem('currentSessionId', currentSessionId);
             
             // Display historical messages
+            output.innerHTML = '';
             history.forEach(message => {
                 const messageDiv = document.createElement('div');
                 messageDiv.className = `message ${message.role}`;
@@ -271,6 +238,7 @@ async function handleAuthSuccess(response) {
         addNewSession();
     }
 }
+
 
 function initializeSidebar() {
     const toggleButton = document.querySelector('.toggle-sidebar');
@@ -426,61 +394,46 @@ async function loadSession(sessionId) {
             showAuthModal();
             return;
         }
+
+        sessionInputs[currentSessionId] = promptInput.value;
+        localStorage.setItem('sessionInputs', JSON.stringify(sessionInputs));
+
+        currentSessionId = sessionId;
+        localStorage.setItem('currentSessionId', currentSessionId);
+
+        promptInput.value = sessionInputs[sessionId] || '';
         
-
-        try {
-
-            // Save current session's input before switching
-            sessionInputs[currentSessionId] = promptInput.value;
-            localStorage.setItem('sessionInputs', JSON.stringify(sessionInputs));
-
-            currentSessionId = sessionId;
-            localStorage.setItem('currentSessionId', currentSessionId);
-
-            // Load the saved input for this session (if any)
-            promptInput.value = sessionInputs[sessionId] || '';
-            
-            const response = await fetch(`/api/history/${sessionId}`);
-            const history = await response.json();
-            
-            // Clear existing messages
-            output.innerHTML = '';
-            
-            // Display each message in the history
-            history.forEach(message => {
-                const messageDiv = document.createElement('div');
-                messageDiv.className = `message ${message.role}`;
-                // Use markdown rendering for all messages
-                messageDiv.innerHTML = md.render(message.content);
-                output.appendChild(messageDiv);
-            });
-            
-            // Update session preview and title if there are messages
-            if (history.length > 0) {
-                const humanMessages = history.filter(msg => msg.role === 'human');
-                if (humanMessages.length > 0) {
-                    const firstHumanMessage = humanMessages[0].content;
-                    const session = sessions.find(s => s.id === sessionId);
-                    if (session) {
-                        session.preview = firstHumanMessage.substring(0, 50) + '...';
-                        session.title = generateTitle(firstHumanMessage);
-                        localStorage.setItem('sessions', JSON.stringify(sessions));
-                    }
-                }
+        const response = await fetch(`/api/history/${sessionId}`);
+        if (!response.ok) {
+            throw new Error('Failed to load chat history');
+        }
+        
+        const history = await response.json();
+        output.innerHTML = '';
+        
+        history.forEach(message => {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${message.role}`;
+            messageDiv.innerHTML = md.render(message.content);
+            output.appendChild(messageDiv);
+        });
+        
+        if (history.length > 0) {
+            const session = sessions.find(s => s.id === sessionId);
+            if (session) {
+                session.preview = history[0].content.substring(0, 50) + '...';
+                session.title = generateTitle(history[0].content);
+                localStorage.setItem('sessions', JSON.stringify(sessions));
             }
-            
-            renderSessions();
-        } catch (e) {
-            console.error('Error loading chat history:', e);
-            output.innerHTML = '<div class="message error">Error loading chat history</div>';
         }
-    } catch (e) {
-        console.error('Error loading chat history:', e);
-        if (e.status === 401) {
-            showAuthModal();
-        }
+        
+        renderSessions();
+    } catch (error) {
+        console.error('Error loading session:', error);
+        output.innerHTML = '<div class="message error">Error loading chat history</div>';
     }
 }
+
 
 function generateTitle(firstMessage) {
     const words = firstMessage.split(' ').slice(0, 4).join(' ');
