@@ -279,7 +279,7 @@ function initializeSidebar() {
 
 
 function addNewSession() {
-    const sessionId = Date.now().toString();
+    const sessionId = crypto.randomUUID();;
     const session = {
         id: sessionId,
         title: 'New Chat',
