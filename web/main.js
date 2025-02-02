@@ -200,33 +200,21 @@ async function handleAuthSuccess(response) {
     document.getElementById('auth-modal').style.display = 'none';
     
     try {
-        const historyResponse = await fetch('/api/history/');
-        const history = await historyResponse.json();
+        // Fetch all sessions
+        const sessionsResponse = await fetch('/api/sessions');
+        const sessionsData = await sessionsResponse.json();
         
-        if (history.length > 0) {
-            // Create new session with historical messages
-            const sessionId = Date.now().toString();
-            const session = {
-                id: sessionId,
-                title: 'Previous Chat',
-                preview: history[0].content.substring(0, 50) + '...'
-            };
-            
-            sessions = [session];
-            currentSessionId = sessionId;
+        if (sessionsData.length > 0) {
+            // Update sessions array with server data
+            sessions = sessionsData;
+            currentSessionId = sessions[0].id;
             
             // Save to localStorage
             localStorage.setItem('sessions', JSON.stringify(sessions));
             localStorage.setItem('currentSessionId', currentSessionId);
             
-            // Display historical messages
-            output.innerHTML = '';
-            history.forEach(message => {
-                const messageDiv = document.createElement('div');
-                messageDiv.className = `message ${message.role}`;
-                messageDiv.innerHTML = md.render(message.content);
-                output.appendChild(messageDiv);
-            });
+            // Load the first session's messages
+            await loadSession(currentSessionId);
         } else {
             addNewSession();
         }
@@ -234,10 +222,11 @@ async function handleAuthSuccess(response) {
         renderSessions();
         
     } catch (error) {
-        console.error('Error loading chat history:', error);
+        console.error('Error loading sessions:', error);
         addNewSession();
     }
 }
+
 
 
 function initializeSidebar() {
@@ -297,8 +286,8 @@ function addNewSession() {
     localStorage.setItem('currentSessionId', currentSessionId);
     
     renderSessions();
-    output.innerHTML = ''; // Clear output
-    promptInput.value = ''; // Clear input
+    output.innerHTML = ''; 
+    promptInput.value = ''; 
     return sessionId;
 }
 
@@ -395,12 +384,14 @@ async function loadSession(sessionId) {
             return;
         }
 
+        // Save current session's input before switching
         sessionInputs[currentSessionId] = promptInput.value;
         localStorage.setItem('sessionInputs', JSON.stringify(sessionInputs));
 
         currentSessionId = sessionId;
         localStorage.setItem('currentSessionId', currentSessionId);
 
+        // Load the saved input for this session
         promptInput.value = sessionInputs[sessionId] || '';
         
         const response = await fetch(`/api/history/${sessionId}`);
@@ -418,21 +409,25 @@ async function loadSession(sessionId) {
             output.appendChild(messageDiv);
         });
         
-        if (history.length > 0) {
-            const session = sessions.find(s => s.id === sessionId);
-            if (session) {
-                session.preview = history[0].content.substring(0, 50) + '...';
-                session.title = generateTitle(history[0].content);
+        // Update session title and preview
+        const session = sessions.find(s => s.id === sessionId);
+        if (session && history.length > 0) {
+            const humanMessages = history.filter(msg => msg.role === 'human');
+            if (humanMessages.length > 0) {
+                session.preview = humanMessages[0].content.substring(0, 50) + '...';
+                session.title = generateTitle(humanMessages[0].content);
                 localStorage.setItem('sessions', JSON.stringify(sessions));
             }
         }
         
         renderSessions();
+        
     } catch (error) {
         console.error('Error loading session:', error);
         output.innerHTML = '<div class="message error">Error loading chat history</div>';
     }
 }
+
 
 
 function generateTitle(firstMessage) {

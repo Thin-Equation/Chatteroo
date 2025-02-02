@@ -144,13 +144,6 @@ def get_chat_history(session_id):
     ).order_by(ChatMessage.timestamp).all()
     return jsonify([message.to_dict() for message in history])
 
-@app.route('/api/history/', methods=['GET'])
-@login_required
-def get_all_chat_history():
-    history = ChatMessage.query.filter_by(user_id=current_user.id).order_by(ChatMessage.timestamp).all()
-    return jsonify([message.to_dict() for message in history])
-
-
 @app.route('/<path:path>')
 def serve_static(path):
     return send_from_directory('web', path)
@@ -166,6 +159,33 @@ def delete_chat_history(session_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
+
+@app.route('/api/sessions', methods=['GET'])
+@login_required
+def get_sessions():
+    # Get unique session IDs for the user
+    sessions = db.session.query(ChatMessage.session_id).filter_by(
+        user_id=current_user.id
+    ).distinct().order_by(ChatMessage.timestamp.desc()).all()
+    
+    sessions_data = []
+    for session in sessions:
+        session_id = session[0]
+        # Get first human message for title/preview
+        first_message = ChatMessage.query.filter_by(
+            user_id=current_user.id,
+            session_id=session_id,
+            role='human'
+        ).order_by(ChatMessage.timestamp).first()
+        
+        sessions_data.append({
+            'id': session_id,
+            'title': first_message.content[:50] + '...' if first_message else 'New Chat',
+            'preview': first_message.content[:50] + '...' if first_message else ''
+        })
+    
+    return jsonify(sessions_data)
+
 
 @app.route('/api/auth/status')
 def auth_status():
